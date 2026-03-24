@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 
 # 設定
 DB_PATH = "database/takken_questions.db"
-# 収集対象年度 (2014-2025)
-YEARS = range(2014, 2026)
+# 最終収集対象年度 (2006-2025: 20年分コンプリート)
+YEARS = range(2006, 2026)
 
 def parse_question_page(html, url, year):
     """takken-siken.com の静的解説ページをパース"""
