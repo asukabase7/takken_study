@@ -87,11 +87,19 @@ def get_years() -> list[str]:
         return ["すべて"]
 
 
-def get_random_question(category: str = "すべて", year: str = "すべて") -> dict | None:
+def get_random_question(category: str = "すべて", year: str = "すべて", unanswered_only: bool = False) -> dict | None:
     if not os.path.exists(DB_PATH):
         return None
     try:
-        where, params = _build_where(category, year)
+        where_base, params = _build_where(category, year)
+        if unanswered_only:
+            extra = "id NOT IN (SELECT question_id FROM study_logs)"
+            if where_base:
+                where = where_base + " AND " + extra
+            else:
+                where = "WHERE " + extra
+        else:
+            where = where_base
         with sqlite3.connect(DB_PATH) as conn:
             row = conn.execute(
                 f"SELECT id, year, category, question_text, options, correct_answer, explanation "
@@ -395,6 +403,7 @@ class TakkenApp(tk.Tk):
         self.selected_category = tk.StringVar(value="すべて")
         self.selected_year = tk.StringVar(value="すべて")
         self.review_mode = tk.BooleanVar(value=False)
+        self.unanswered_only = tk.BooleanVar(value=False)
 
         self._build_ui()
         self.load_question()
@@ -497,6 +506,18 @@ class TakkenApp(tk.Tk):
             font=self.font_small,
         )
         self.lbl_review_count.pack(side=tk.LEFT)
+
+        # 未回答のみ チェックボックス
+        tk.Checkbutton(
+            filter_bar, text="☑ 未回答のみ",
+            variable=self.unanswered_only,
+            command=self._on_unanswered_toggle,
+            bg=COLORS["card"], fg=COLORS["accent"],
+            selectcolor=COLORS["surface"],
+            activebackground=COLORS["card"],
+            activeforeground=COLORS["accent"],
+            font=self.font_small, cursor="hand2",
+        ).pack(side=tk.LEFT, padx=(12, 0))
 
         # 〇×モードボタン（右端）
         tk.Button(
@@ -688,6 +709,10 @@ class TakkenApp(tk.Tk):
         count = get_review_count()
         self.lbl_review_count.config(text=f"（要復習: {count}問）")
 
+    def _on_unanswered_toggle(self):
+        """「未回答のみ」チェックボックスのトグル処理"""
+        self.load_question()
+
     def load_question(self):
         self.answered = False
         self.selected_answer.set(-1)
@@ -696,6 +721,7 @@ class TakkenApp(tk.Tk):
 
         cat  = self.selected_category.get()
         year = self.selected_year.get()
+        unanswered = self.unanswered_only.get()
 
         if self.review_mode.get():
             q = get_review_question(cat, year)
@@ -704,9 +730,16 @@ class TakkenApp(tk.Tk):
                 self.review_mode.set(False)
                 self.btn_review.config(bg=COLORS["surface"], fg=COLORS["subtext"], text="🔁 復習モード")
                 self.lbl_mode_badge.pack_forget()
-                q = get_random_question(cat, year)
+                q = get_random_question(cat, year, unanswered_only=unanswered)
         else:
-            q = get_random_question(cat, year)
+            q = get_random_question(cat, year, unanswered_only=unanswered)
+            if q is None and unanswered:
+                messagebox.showinfo(
+                    "未回答モード",
+                    "すべての未回答問題を解き終わりました！\n通常出題モードに戻ります。"
+                )
+                self.unanswered_only.set(False)
+                q = get_random_question(cat, year, unanswered_only=False)
 
         if q is None:
             messagebox.showerror("エラー", f"「{cat}／{year}」の問題が見つかりません。")
