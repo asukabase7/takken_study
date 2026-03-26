@@ -23,20 +23,49 @@ DB_PATH = os.path.join(BASE_DIR, "database", "takken_questions.db")
 # ─────────────────────────────────────────────
 # カラーパレット
 # ─────────────────────────────────────────────
-COLORS = {
-    "bg":      "#1E2030",
-    "surface": "#2A2D3E",
-    "card":    "#2F3447",
-    "primary": "#7C83FD",
-    "accent":  "#56CFE1",
-    "success": "#4CAF50",
-    "error":   "#F44336",
-    "text":    "#E0E0E0",
-    "subtext": "#9E9EB8",
-    "border":  "#454875",
-    "gold":    "#E8A838",
-    "review":  "#9B59B6",
+THEMES = {
+    "dark": {
+        "bg":         "#1E2030",
+        "surface":    "#2A2D3E",
+        "card":       "#2F3447",
+        "primary":    "#7C83FD",
+        "accent":     "#56CFE1",
+        "success":    "#4CAF50",
+        "error":      "#F44336",
+        "text":       "#E0E0E0",
+        "subtext":    "#9E9EB8",
+        "border":     "#454875",
+        "gold":       "#E8A838",
+        "review":     "#9B59B6",
+        "btn_fg":     "white",
+        "badge_fg":   "#1E2031",
+        "correct_bg": "#1B4332",
+        "correct_fg": "#81C784",
+        "wrong_bg":   "#3B1A1A",
+        "wrong_fg":   "#EF9A9A",
+    },
+    "light": {
+        "bg":         "#F4F6F8",
+        "surface":    "#FFFFFF",
+        "card":       "#F9FAFB",
+        "primary":    "#4F46E5",
+        "accent":     "#06B6D4",
+        "success":    "#10B981",
+        "error":      "#EF4444",
+        "text":       "#1F2937",
+        "subtext":    "#6B7280",
+        "border":     "#E5E7EB",
+        "gold":       "#F59E0B",
+        "review":     "#8B5CF6",
+        "btn_fg":     "white",
+        "badge_fg":   "#FFFFFF",
+        "correct_bg": "#D1FAE5",
+        "correct_fg": "#047857",
+        "wrong_bg":   "#FEE2E2",
+        "wrong_fg":   "#B91C1C",
+    }
 }
+COLORS = THEMES["dark"].copy()
 
 CATEGORIES = ["すべて", "業法", "制限", "権利等"]
 
@@ -212,10 +241,10 @@ class TrueFalseWindow(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("⭕❌ 一問一答モード")
-        self.geometry("760x520")
+        self.geometry("760x620")
         self.resizable(True, True)
         self.configure(bg=COLORS["bg"])
-        self.minsize(560, 420)
+        self.minsize(560, 500)
 
         self._score = [0, 0]  # [correct, total]
         self._current: dict | None = None  # {text, is_correct, q_id, explanation}
@@ -234,7 +263,7 @@ class TrueFalseWindow(tk.Toplevel):
         # ヘッダー
         hdr = tk.Frame(self, bg=COLORS["surface"], pady=6)
         hdr.pack(fill=tk.X)
-        tk.Label(hdr, text="⭕❌ 一問一答モード",
+        tk.Label(hdr, text="⧭❌ 一問一答モード",
                  bg=COLORS["surface"], fg=COLORS["accent"],
                  font=("TakaoPGothic", 12, "bold")).pack(side=tk.LEFT, padx=16)
         self.lbl_score = tk.Label(hdr, text="",
@@ -243,30 +272,52 @@ class TrueFalseWindow(tk.Toplevel):
         self.lbl_score.pack(side=tk.RIGHT, padx=16)
 
         # 説明
-        tk.Label(self, text="この文章は正しいですか？",
+        tk.Label(self, text="下記の記述は正しいですか？",
                  bg=COLORS["bg"], fg=COLORS["subtext"],
-                 font=self.f_small).pack(pady=(10, 2))
+                 font=self.f_small).pack(pady=(8, 2))
 
-        # 問題カード
-        card = tk.Frame(self, bg=COLORS["card"], pady=14)
-        card.pack(fill=tk.X, padx=24, pady=(0, 12))
+        # ♻上段: 前提問題文カード
+        q_card = tk.Frame(self, bg=COLORS["surface"], pady=10)
+        q_card.pack(fill=tk.X, padx=24, pady=(0, 4))
 
-        self.lbl_item = tk.Label(card, text="",
-                                 bg=COLORS["card"], fg=COLORS["text"],
-                                 font=self.f_body, wraplength=660,
-                                 justify=tk.LEFT)
-        self.lbl_item.pack(fill=tk.X, padx=16)
+        tk.Label(q_card, text="問題文",
+                 bg=COLORS["surface"], fg=COLORS["subtext"],
+                 font=self.f_small).pack(anchor=tk.W, padx=12)
 
-        def _wrap_q(e):
-            self.lbl_item.config(wraplength=max(200, e.width - 32))
-        card.bind("<Configure>", _wrap_q)
+        self.lbl_main_question = tk.Label(
+            q_card, text="",
+            bg=COLORS["surface"], fg=COLORS["text"],
+            font=self.f_body, wraplength=660, justify=tk.LEFT)
+        self.lbl_main_question.pack(fill=tk.X, padx=12, pady=(2, 6))
+
+        def _wrap_main(e):
+            self.lbl_main_question.config(wraplength=max(200, e.width - 24))
+        q_card.bind("<Configure>", _wrap_main)
+
+        # ↓ 下段: 判定する選択肢カード
+        opt_card = tk.Frame(self, bg=COLORS["card"], pady=10)
+        opt_card.pack(fill=tk.X, padx=24, pady=(0, 10))
+
+        tk.Label(opt_card, text="↓ 判定する選択肢",
+                 bg=COLORS["card"], fg=COLORS["primary"],
+                 font=("TakaoPGothic", 8, "bold")).pack(anchor=tk.W, padx=12)
+
+        self.lbl_item = tk.Label(
+            opt_card, text="",
+            bg=COLORS["card"], fg=COLORS["accent"],
+            font=self.f_bold, wraplength=660, justify=tk.LEFT)
+        self.lbl_item.pack(fill=tk.X, padx=12, pady=(2, 6))
+
+        def _wrap_opt(e):
+            self.lbl_item.config(wraplength=max(200, e.width - 24))
+        opt_card.bind("<Configure>", _wrap_opt)
 
         # ○×ボタン
         btn_row = tk.Frame(self, bg=COLORS["bg"])
         btn_row.pack(pady=6)
 
         self.btn_true = tk.Button(
-            btn_row, text="⭕  正しい", width=14,
+            btn_row, text="⧭  正しい", width=14,
             command=lambda: self._answer(True),
             bg=COLORS["success"], fg="white",
             font=("TakaoPGothic", 13, "bold"),
@@ -289,6 +340,8 @@ class TrueFalseWindow(tk.Toplevel):
 
         def _wrap_fb(e):
             self.lbl_fb.config(wraplength=max(200, e.width - 48))
+            self.lbl_main_question.config(wraplength=max(200, e.width - 72))
+            self.lbl_item.config(wraplength=max(200, e.width - 72))
         self.bind("<Configure>", _wrap_fb)
 
         # 次へボタン
@@ -307,12 +360,20 @@ class TrueFalseWindow(tk.Toplevel):
         self.btn_true.config(state=tk.NORMAL, relief=tk.FLAT)
         self.btn_false.config(state=tk.NORMAL, relief=tk.FLAT)
 
-        # ランダムに元問題を取得
+        # 個数問題・組合せ問題を除外してランダムに元問題を取得
+        EXCLUDE_PATTERNS = [
+            "%一つ%", "%二つ%", "%三つ%", "%四つ%",
+            "%個%", "%アとイ%", "%ア、イ%",
+            "%組合せ%", "%正しいものはいくつ%",
+        ]
+        exclude_sql = " AND ".join(
+            f"options NOT LIKE '{p}'" for p in EXCLUDE_PATTERNS
+        )
         try:
             with sqlite3.connect(DB_PATH) as conn:
                 row = conn.execute(
-                    "SELECT id, question_text, options, correct_answer, explanation "
-                    "FROM questions ORDER BY RANDOM() LIMIT 1"
+                    f"SELECT id, question_text, options, correct_answer, explanation "
+                    f"FROM questions WHERE {exclude_sql} ORDER BY RANDOM() LIMIT 1"
                 ).fetchone()
         except sqlite3.Error:
             return
@@ -340,6 +401,8 @@ class TrueFalseWindow(tk.Toplevel):
             "label": labels[idx],
             "correct_label": labels[correct_0],
         }
+        # 問題文と選択肢をそれぞれ表示
+        self.lbl_main_question.config(text=q_text)
         self.lbl_item.config(text=display)
 
     def _answer(self, user_says_true: bool):
@@ -397,8 +460,9 @@ class TakkenApp(tk.Tk):
         self._setup_fonts()
 
         # 状態変数
+        self.current_theme = tk.StringVar(value="dark")
         self.current_question: dict | None = None
-        self.selected_answer = tk.IntVar(value=-1)
+        self.last_chosen = -1
         self.answered = False
         self.selected_category = tk.StringVar(value="すべて")
         self.selected_year = tk.StringVar(value="すべて")
@@ -441,6 +505,14 @@ class TakkenApp(tk.Tk):
             font=self.font_small,
         )
         self.lbl_count.pack(side=tk.RIGHT, padx=4)
+
+        self.btn_theme = tk.Button(
+            header, text="☀️ ライト",
+            command=self._toggle_theme,
+            bg=COLORS["surface"], fg=COLORS["text"],
+            font=self.font_small, relief=tk.FLAT, cursor="hand2", padx=8,
+        )
+        self.btn_theme.pack(side=tk.RIGHT, padx=16)
 
         # ─── フィルターバー ───
         filter_bar = tk.Frame(self, bg=COLORS["card"], pady=6)
@@ -551,7 +623,7 @@ class TakkenApp(tk.Tk):
         self.lbl_year_badge.pack(side=tk.LEFT, padx=(0, 6))
         self.lbl_category = tk.Label(
             badge_row, text="",
-            bg=COLORS["accent"], fg="#1E2030",
+            bg=COLORS["accent"], fg=COLORS["badge_fg"],
             font=self.font_badge, padx=8, pady=2,
         )
         self.lbl_category.pack(side=tk.LEFT)
@@ -577,44 +649,34 @@ class TakkenApp(tk.Tk):
             self.lbl_question.config(wraplength=w)
         q_frame.bind("<Configure>", _update_wrap)
 
-        # 選択肢
-        options_outer = tk.LabelFrame(
-            main, text="  選択肢  ",
-            bg=COLORS["bg"], fg=COLORS["subtext"],
-            font=self.font_small, bd=1, relief=tk.GROOVE,
-        )
-        options_outer.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
-        options_outer.columnconfigure(0, weight=1)
+        # 選択肢 (フラットデザイン)
+        options_container = tk.Frame(main, bg=COLORS["bg"])
+        options_container.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        options_container.columnconfigure(0, weight=1)
 
-        self.radio_buttons: list[tk.Radiobutton] = []
+        self.option_labels: list[tk.Label] = []
         self.option_frames: list[tk.Frame] = []
 
         for i in range(4):
-            opt_frame = tk.Frame(options_outer, bg=COLORS["surface"], pady=6)
-            opt_frame.pack(fill=tk.X, padx=8, pady=3)
+            opt_frame = tk.Frame(options_container, bg=COLORS["surface"], pady=8, padx=12)
+            opt_frame.pack(fill=tk.X, pady=4)
             opt_frame.columnconfigure(0, weight=1)
             self.option_frames.append(opt_frame)
 
-            rb = tk.Radiobutton(
+            lbl = tk.Label(
                 opt_frame, text="",
-                variable=self.selected_answer, value=i,
                 bg=COLORS["surface"], fg=COLORS["text"],
-                activebackground=COLORS["card"],
-                activeforeground=COLORS["primary"],
-                selectcolor=COLORS["card"],
                 font=self.font_option,
-                anchor=tk.W, justify=tk.LEFT, wraplength=680,
-                padx=10,
-                command=self._on_option_select,
+                anchor=tk.W, justify=tk.LEFT, wraplength=660,
             )
-            rb.pack(fill=tk.X)
-            self.radio_buttons.append(rb)
+            lbl.pack(fill=tk.X)
+            self.option_labels.append(lbl)
 
-        def _update_option_wrap(event, rbs=self.radio_buttons):
-            w = max(200, event.width - 60)
-            for rb in rbs:
-                rb.config(wraplength=w)
-        options_outer.bind("<Configure>", _update_option_wrap)
+        def _update_option_wrap(event, lbls=self.option_labels):
+            w = max(200, event.width - 40)
+            for lbl in lbls:
+                lbl.config(wraplength=w)
+        options_container.bind("<Configure>", _update_option_wrap)
 
         # フィードバック
         self.lbl_feedback = tk.Label(
@@ -629,19 +691,26 @@ class TakkenApp(tk.Tk):
             self.lbl_feedback.config(wraplength=max(200, event.width - 10))
         main.bind("<Configure>", _update_feedback_wrap)
 
-        # ── ボタン行 ──
+        # ── ワンクリック回答ボタン行 ──
+        self.answer_btn_row = tk.Frame(main, bg=COLORS["bg"])
+        self.answer_btn_row.pack(fill=tk.X, pady=(0, 12))
+        
+        self.answer_buttons: list[tk.Button] = []
+        for i in range(4):
+            self.answer_btn_row.columnconfigure(i, weight=1)
+            btn = tk.Button(
+                self.answer_btn_row, text=f"{['①', '②', '③', '④'][i]}",
+                command=lambda idx=i: self.check_answer(idx),
+                bg=COLORS["card"], fg=COLORS["text"],
+                font=("TakaoPGothic", 14, "bold"),
+                relief=tk.FLAT, pady=12, cursor="hand2",
+            )
+            btn.grid(row=0, column=i, sticky="ew", padx=4)
+            self.answer_buttons.append(btn)
+
+        # ── 下部ボタン行 ──
         btn_row = tk.Frame(main, bg=COLORS["bg"])
         btn_row.pack(fill=tk.X)
-
-        self.btn_answer = tk.Button(
-            btn_row, text="✅  回答する",
-            command=self.check_answer,
-            bg=COLORS["primary"], fg="white",
-            font=("TakaoPGothic", 11, "bold"),
-            relief=tk.FLAT, padx=18, pady=8,
-            cursor="hand2", state=tk.DISABLED,
-        )
-        self.btn_answer.pack(side=tk.LEFT, padx=(0, 8))
 
         self.btn_next = tk.Button(
             btn_row, text="▶  次の問題",
@@ -655,7 +724,7 @@ class TakkenApp(tk.Tk):
         self.btn_copy_ai = tk.Button(
             btn_row, text="📋  AIに質問 (コピー)",
             command=self.copy_for_ai,
-            bg=COLORS["gold"], fg="#1E2030",
+            bg=COLORS["gold"], fg=COLORS["badge_fg"],
             font=("TakaoPGothic", 11, "bold"),
             relief=tk.FLAT, padx=18, pady=8, cursor="hand2",
         )
@@ -664,9 +733,58 @@ class TakkenApp(tk.Tk):
     # ─────────────────────────────────────────
     # イベントハンドラ
     # ─────────────────────────────────────────
-    def _on_option_select(self):
-        if not self.answered:
-            self.btn_answer.config(state=tk.NORMAL)
+    def _toggle_theme(self):
+        new_theme = "light" if self.current_theme.get() == "dark" else "dark"
+        self.current_theme.set(new_theme)
+        
+        if new_theme == "light":
+            self.btn_theme.config(text="🌙 ダーク")
+        else:
+            self.btn_theme.config(text="☀️ ライト")
+            
+        self._apply_theme()
+
+    def _apply_theme(self):
+        old_theme_name = "dark" if self.current_theme.get() == "light" else "light"
+        old_colors = THEMES[old_theme_name]
+        new_colors = THEMES[self.current_theme.get()]
+        
+        # Build strict mapping using unique hex values from the old theme
+        color_map = {old_colors[k]: new_colors[k] for k in old_colors}
+        
+        def update_widget(w):
+            try:
+                keys = w.keys()
+                # Update attributes if they match old colors exactly
+                for attr in ['bg', 'fg', 'background', 'foreground', 'activebackground', 'activeforeground', 'selectcolor', 'selectbackground', 'selectforeground']:
+                    if attr in keys:
+                        current_val = w.cget(attr)
+                        if current_val in color_map:
+                            w.configure({attr: color_map[current_val]})
+            except Exception:
+                pass
+            for child in w.winfo_children():
+                update_widget(child)
+
+        update_widget(self)
+        COLORS.update(new_colors)
+
+        # Update ttk Styles
+        style = ttk.Style(self)
+        style.configure(
+            "Dark.TCombobox",
+            fieldbackground=COLORS["surface"],
+            background=COLORS["surface"],
+            foreground=COLORS["text"],
+            arrowcolor=COLORS["primary"],
+            bordercolor=COLORS["border"],
+            selectbackground=COLORS["primary"],
+            selectforeground=COLORS["btn_fg"],
+        )
+        style.map("Dark.TCombobox",
+                  fieldbackground=[("readonly", COLORS["surface"])],
+                  foreground=[("readonly", COLORS["text"])],
+                  )
 
     def _on_filter_change(self, _event=None):
         if self.review_mode.get():
@@ -715,8 +833,9 @@ class TakkenApp(tk.Tk):
 
     def load_question(self):
         self.answered = False
-        self.selected_answer.set(-1)
-        self.btn_answer.config(state=tk.DISABLED)
+        self.last_chosen = -1
+        for btn in getattr(self, "answer_buttons", []):
+            btn.config(state=tk.NORMAL, bg=COLORS["card"], fg=COLORS["text"])
         self.lbl_feedback.config(text="", bg=COLORS["bg"])
 
         cat  = self.selected_category.get()
@@ -752,11 +871,11 @@ class TakkenApp(tk.Tk):
 
         options = q["options"]
         labels = ["①", "②", "③", "④"]
-        for i, rb in enumerate(self.radio_buttons):
+        for i, lbl in enumerate(self.option_labels):
             text = options[i] if i < len(options) else ""
-            rb.config(
+            lbl.config(
                 text=f"  {labels[i]}  {text}",
-                fg=COLORS["text"], bg=COLORS["surface"], state=tk.NORMAL,
+                fg=COLORS["text"], bg=COLORS["surface"],
             )
             self.option_frames[i].config(bg=COLORS["surface"])
 
@@ -765,16 +884,15 @@ class TakkenApp(tk.Tk):
         self._update_accuracy_label()
         self._update_review_count()
 
-    def check_answer(self):
+    def check_answer(self, chosen: int):
         if self.current_question is None or self.answered:
             return
 
-        chosen   = self.selected_answer.get()
+        self.last_chosen = chosen
         correct_0 = self.current_question["correct_answer"] - 1
         explanation = self.current_question.get("explanation", "")
 
         self.answered = True
-        self.btn_answer.config(state=tk.DISABLED)
 
         labels = ["①", "②", "③", "④"]
         is_correct = (chosen == correct_0)
@@ -786,20 +904,24 @@ class TakkenApp(tk.Tk):
                 text=f"⭕  正解！ 正答は {labels[correct_0]} です。\n{explanation}",
                 fg=COLORS["success"], bg=COLORS["bg"],
             )
-            self.option_frames[correct_0].config(bg="#1B4332")
-            self.radio_buttons[correct_0].config(bg="#1B4332", fg="#81C784")
+            self.option_frames[correct_0].config(bg=COLORS["correct_bg"])
+            self.option_labels[correct_0].config(bg=COLORS["correct_bg"], fg=COLORS["correct_fg"])
+            self.answer_buttons[correct_0].config(bg=COLORS["correct_bg"], fg=COLORS["correct_fg"])
         else:
             self.lbl_feedback.config(
                 text=f"❌  不正解。正答は {labels[correct_0]} です。\n{explanation}",
                 fg=COLORS["error"], bg=COLORS["bg"],
             )
-            self.option_frames[chosen].config(bg="#3B1A1A")
-            self.radio_buttons[chosen].config(bg="#3B1A1A", fg="#EF9A9A")
-            self.option_frames[correct_0].config(bg="#1B4332")
-            self.radio_buttons[correct_0].config(bg="#1B4332", fg="#81C784")
+            self.option_frames[chosen].config(bg=COLORS["wrong_bg"])
+            self.option_labels[chosen].config(bg=COLORS["wrong_bg"], fg=COLORS["wrong_fg"])
+            self.answer_buttons[chosen].config(bg=COLORS["wrong_bg"], fg=COLORS["wrong_fg"])
+            
+            self.option_frames[correct_0].config(bg=COLORS["correct_bg"])
+            self.option_labels[correct_0].config(bg=COLORS["correct_bg"], fg=COLORS["correct_fg"])
+            self.answer_buttons[correct_0].config(bg=COLORS["correct_bg"], fg=COLORS["correct_fg"])
 
-        for rb in self.radio_buttons:
-            rb.config(state=tk.DISABLED)
+        for btn in self.answer_buttons:
+            btn.config(state=tk.DISABLED)
 
         self._update_accuracy_label()
         self._update_review_count()
@@ -816,7 +938,7 @@ class TakkenApp(tk.Tk):
         correct_label = labels[correct_0]
         explanation  = q.get("explanation") or "（解説なし）"
 
-        chosen_raw   = self.selected_answer.get()
+        chosen_raw   = self.last_chosen
         chosen_label = labels[chosen_raw] if 0 <= chosen_raw <= 3 else "未選択"
 
         prompt = (
@@ -836,9 +958,9 @@ class TakkenApp(tk.Tk):
         self.clipboard_clear()
         self.clipboard_append(prompt)
 
-        self.btn_copy_ai.config(text="✅  コピーしました!", bg=COLORS["success"], fg="white")
+        self.btn_copy_ai.config(text="✅  コピーしました!", bg=COLORS["success"], fg=COLORS["btn_fg"])
         self.after(2000, lambda: self.btn_copy_ai.config(
-            text="📋  AIに質問 (コピー)", bg=COLORS["gold"], fg="#1E2030"
+            text="📋  AIに質問 (コピー)", bg=COLORS["gold"], fg=COLORS["badge_fg"]
         ))
 
 
