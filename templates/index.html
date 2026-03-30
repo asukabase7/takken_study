@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>宅建 学習ツール (Web版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+        // 即時ダークモード判定（ちらつき防止）
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        ::selection {
+            background-color: #bfdbfe;
+            color: #1e3a8a;
+        }
+
+        .dark ::selection {
+            background-color: #1e3a8a;
+            color: #bfdbfe;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 antialiased min-h-screen flex flex-col transition-colors duration-200">
+
+    <!-- ヘッダー -->
+    <header class="bg-blue-600 dark:bg-gray-800 text-white shadow-md sticky top-0 z-20 transition-colors duration-200">
+        <div class="p-4 flex justify-between items-center">
+            <h1 class="text-lg sm:text-xl font-bold tracking-wider">📚 宅建 学習モード</h1>
+
+            <div class="flex items-center gap-3">
+                <!-- Stats badge (Desktop) -->
+                <div id="stats-badge"
+                    class="hidden sm:flex text-xs bg-blue-800 dark:bg-gray-700 text-blue-100 dark:text-gray-200 px-3 py-1.5 rounded-full items-center gap-2 shadow-inner">
+                    <span class="font-medium whitespace-nowrap">進捗: <span id="stat-progress"
+                            class="font-bold">0/0</span></span>
+                    <span class="border-l border-blue-600 dark:border-gray-500 pl-2 font-medium whitespace-nowrap">正答率:
+                        <span id="stat-accuracy" class="font-bold">0%</span></span>
+                </div>
+
+                <!-- Dark mode toggle -->
+                <button id="theme-toggle" onclick="toggleTheme()"
+                    class="p-2 rounded-full bg-blue-700 dark:bg-gray-700 text-yellow-300 dark:text-yellow-400 hover:bg-blue-800 dark:hover:bg-gray-600 transition-colors shadow-sm flex items-center justify-center w-9 h-9">
+                    <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z">
+                        </path>
+                    </svg>
+                    <svg class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z">
+                        </path>
+                    </svg>
+                </button>
+
+                <div id="loading"
+                    class="hidden text-sm animate-pulse bg-blue-700 dark:bg-gray-700 px-3 py-1 rounded-full font-medium shadow-inner">
+                    読込中...</div>
+            </div>
+        </div>
+
+        <!-- タブナビゲーション -->
+        <div
+            class="flex text-center border-t border-blue-500 dark:border-gray-700 bg-blue-700 dark:bg-gray-800 transition-colors duration-200">
+            <button id="tab-tf"
+                class="flex-1 py-3 text-sm sm:text-base font-bold transition-colors bg-blue-800 dark:bg-gray-900 text-white border-b-4 border-white dark:border-blue-400"
+                onclick="switchMode('tf')">
+                ⭕❌ 一問一答
+            </button>
+            <button id="tab-4c"
+                class="flex-1 py-3 text-sm sm:text-base font-bold transition-colors text-blue-200 dark:text-gray-400 border-b-4 border-transparent hover:bg-blue-800 dark:hover:bg-gray-700 hover:text-white dark:hover:text-gray-200"
+                onclick="switchMode('4c')">
+                🔢 過去問
+            </button>
+        </div>
+
+        <!-- フィルターナビゲーション -->
+        <div
+            class="bg-blue-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 shadow-inner transition-colors duration-200">
+            <div class="p-2 sm:p-3 max-w-2xl mx-auto flex flex-col gap-2 text-sm">
+                <!-- 上段: 分野と年度 -->
+                <div class="flex flex-row items-center justify-center gap-4">
+                    <!-- 分野フィルター -->
+                    <div class="flex items-center gap-2">
+                        <label for="filter-category"
+                            class="font-bold text-blue-800 dark:text-blue-300 hidden sm:inline">分野</label>
+                        <svg class="w-4 h-4 text-blue-600 dark:text-blue-400 sm:hidden" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                        </svg>
+                        <select id="filter-category"
+                            class="border border-blue-200 dark:border-gray-600 rounded-lg py-1 px-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 shadow-sm focus:ring-2 focus:ring-blue-500 font-medium transition-colors"
+                            onchange="fetchQuestion()">
+                            <option value="すべて">すべて</option>
+                            <option value="業法">業法</option>
+                            <option value="制限">制限</option>
+                            <option value="権利等">権利等</option>
+                        </select>
+                    </div>
+                    <!-- 年度フィルター -->
+                    <div class="flex items-center gap-2 border-l border-blue-200 dark:border-gray-600 pl-4">
+                        <label for="filter-year"
+                            class="font-bold text-blue-800 dark:text-blue-300 hidden sm:inline">年度</label>
+                        <svg class="w-4 h-4 text-blue-600 dark:text-blue-400 sm:hidden" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                            </path>
+                        </svg>
+                        <select id="filter-year"
+                            class="border border-blue-200 dark:border-gray-600 rounded-lg py-1 px-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 shadow-sm focus:ring-2 focus:ring-blue-500 font-medium transition-colors"
+                            onchange="fetchQuestion()">
+                            <option value="すべて">すべて</option>
+                            {% for year in years %}
+                            <option value="{{ year }}">{{ year }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 下段: 状態フィルター -->
+                <div class="flex flex-row items-center justify-center gap-6 mt-1">
+                    <label class="flex items-center gap-1.5 cursor-pointer group">
+                        <input type="checkbox" id="filter-unanswered"
+                            class="w-4 h-4 text-blue-600 rounded border-blue-300 dark:border-gray-500 dark:bg-gray-700 focus:ring-blue-500"
+                            onchange="fetchQuestion()">
+                        <span
+                            class="font-medium text-blue-800 dark:text-blue-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">☑
+                            未回答のみ</span>
+                    </label>
+
+                    <label
+                        class="flex items-center gap-1.5 cursor-pointer bg-amber-100 dark:bg-amber-900/40 px-3 py-1 rounded-full border border-amber-200 dark:border-amber-700/50 hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors">
+                        <input type="checkbox" id="filter-review"
+                            class="w-4 h-4 text-amber-600 rounded border-amber-300 dark:border-amber-600 dark:bg-gray-700 focus:ring-amber-500"
+                            onchange="handleReviewToggle()">
+                        <span class="font-bold text-amber-800 dark:text-amber-300">🔁 復習モード</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- モバイル用ステータス表示 (sm:hidden) -->
+            <div
+                class="sm:hidden flex justify-center items-center gap-4 py-2 border-t border-blue-200 dark:border-gray-700 bg-blue-50 dark:bg-gray-800 text-xs font-medium text-blue-800 dark:text-blue-300">
+                <span>進捗: <span id="stat-progress-mobile"
+                        class="font-bold text-gray-900 dark:text-white">0/0</span></span>
+                <span>正答率: <span id="stat-accuracy-mobile"
+                        class="font-bold text-gray-900 dark:text-white">0%</span></span>
+            </div>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="w-full max-w-2xl mx-auto p-4 flex flex-col gap-6 mt-2 mb-12">
+
+        <!-- 問題文エリア -->
+        <div
+            class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-5 border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+            <h2 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                <span
+                    class="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded text-xs transition-colors"
+                    id="question-badge">問題</span>
+            </h2>
+            <p id="main-question" class="text-base sm:text-lg leading-relaxed whitespace-pre-wrap dark:text-gray-100">
+                問題を読み込んでいます...</p>
+        </div>
+
+        <!-- 判定する選択肢エリア (一問一答モード用) -->
+        <div id="sub-question-area"
+            class="bg-blue-50 dark:bg-blue-900/20 rounded-2xl shadow-sm p-4 sm:p-5 border-2 border-blue-200 dark:border-blue-800/50 relative overflow-hidden transition-colors duration-200">
+            <div class="absolute top-0 left-0 w-1 h-full bg-blue-500 dark:bg-blue-400"></div>
+            <h2 class="text-sm font-bold text-blue-700 dark:text-blue-400 mb-3">↓ 下記の記述は正しいですか？</h2>
+            <p id="sub-question"
+                class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white leading-relaxed whitespace-pre-wrap">
+            </p>
+        </div>
+
+        <!-- 一問一答アクションエリア (通常フロー配置) -->
+        <div id="action-tf" class="w-full max-w-md mx-auto flex flex-row gap-4 mt-2">
+            <button id="btn-true"
+                class="w-1/2 bg-gradient-to-b from-green-400 to-green-600 dark:from-green-500 dark:to-green-700 text-white font-bold text-xl py-4 sm:py-5 rounded-xl shadow-[0_4px_14px_0_rgba(34,197,94,0.39)] dark:shadow-[0_4px_14px_0_rgba(34,197,94,0.2)] active:scale-95 transition-all flex flex-row items-center justify-center gap-2 whitespace-nowrap"
+                onclick="handleAnswerTF(true)">
+                <span class="text-3xl sm:text-4xl drop-shadow-md">⭕</span>
+                <span>正しい</span>
+            </button>
+            <button id="btn-false"
+                class="w-1/2 bg-gradient-to-b from-red-400 to-red-600 dark:from-red-500 dark:to-red-700 text-white font-bold text-xl py-4 sm:py-5 rounded-xl shadow-[0_4px_14px_0_rgba(239,68,68,0.39)] dark:shadow-[0_4px_14px_0_rgba(239,68,68,0.2)] active:scale-95 transition-all flex flex-row items-center justify-center gap-2 whitespace-nowrap"
+                onclick="handleAnswerTF(false)">
+                <span class="text-3xl sm:text-4xl drop-shadow-md">❌</span>
+                <span>誤り</span>
+            </button>
+        </div>
+
+        <!-- 4択アクションエリア (通常フロー配置) -->
+        <div id="action-4c" class="hidden w-full mx-auto flex flex-col gap-3 mt-2">
+            <div class="flex flex-col gap-3" id="choices-container">
+                <!-- JSで選択肢ボタンを動的に生成 -->
+            </div>
+        </div>
+
+        <!-- 結果＆解説エリア (初期非表示) -->
+        <div id="result-area"
+            class="hidden bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex-col gap-0 overflow-hidden text-base sm:text-lg transition-colors duration-200">
+            <div id="judgment"
+                class="text-xl sm:text-2xl font-bold text-center py-4 px-4 border-b dark:border-gray-700"></div>
+
+            <div class="p-4 sm:p-6 bg-gray-50 dark:bg-gray-800/80 transition-colors duration-200">
+                <h3 class="text-sm font-bold text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    解説・正解
+                </h3>
+                <p id="explanation" class="leading-relaxed whitespace-pre-wrap text-gray-800 dark:text-gray-200 mb-4">
+                </p>
+
+                <!-- AIアシストコピーボタン -->
+                <button id="btn-copy-ai"
+                    class="w-full bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-200 font-bold py-3 rounded-lg border border-amber-300 dark:border-amber-700/50 transition-colors flex justify-center items-center gap-2 text-sm sm:text-base mt-2"
+                    onclick="copyPromptForAI()">
+                    <span>🤖 AIに解説を求める (プロンプトコピー)</span>
+                </button>
+            </div>
+
+            <div
+                class="p-4 sm:p-5 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 transition-colors duration-200">
+                <button id="next-btn"
+                    class="w-full bg-gray-900 dark:bg-blue-600 text-white font-bold py-4 rounded-xl shadow-[0_4px_14px_0_rgba(0,0,0,0.2)] dark:shadow-[0_4px_14px_0_rgba(37,99,235,0.2)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.23)] dark:hover:shadow-[0_6px_20px_rgba(37,99,235,0.4)] dark:hover:bg-blue-500 active:scale-95 transition-all flex justify-center items-center gap-2 text-lg"
+                    onclick="fetchQuestion()">
+                    <span>次の問題へ進む</span>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentMode = 'tf'; // 'tf' or '4c'
+        let currentQuestion = null;
+        let userLastChoice = null;
+
+        const loadingEl = document.getElementById('loading');
+        const mainQuestionEl = document.getElementById('main-question');
+        const subQuestionAreaEl = document.getElementById('sub-question-area');
+        const subQuestionEl = document.getElementById('sub-question');
+        const resultAreaEl = document.getElementById('result-area');
+        const judgmentEl = document.getElementById('judgment');
+        const explanationEl = document.getElementById('explanation');
+
+        const actionTfEl = document.getElementById('action-tf');
+        const action4cEl = document.getElementById('action-4c');
+        const choicesContainer = document.getElementById('choices-container');
+
+        const tabTf = document.getElementById('tab-tf');
+        const tab4c = document.getElementById('tab-4c');
+
+        const btnCopyAi = document.getElementById('btn-copy-ai');
+        const btnTrue = document.getElementById('btn-true');
+        const btnFalse = document.getElementById('btn-false');
+
+        const filterCategory = document.getElementById('filter-category');
+        const filterYear = document.getElementById('filter-year');
+        const filterUnanswered = document.getElementById('filter-unanswered');
+        const filterReview = document.getElementById('filter-review');
+
+        const labels = ["①", "②", "③", "④"];
+
+        function toggleTheme() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        async function fetchStats() {
+            try {
+                const category = filterCategory.value;
+                const year = filterYear.value;
+                const params = new URLSearchParams({ category, year });
+                const res = await fetch('/api/stats?' + params.toString());
+                if (res.ok) {
+                    const data = await res.json();
+                    const accuracy = data.answered > 0 ? Math.round((data.correct / data.answered) * 100) : 0;
+                    const progressText = `${data.answered}/${data.total}`;
+                    const accuracyText = `${accuracy}%`;
+                    const desktopAccuracyText = `${accuracy}% (${data.correct}/${data.answered})`;
+
+                    document.getElementById('stat-progress').textContent = progressText;
+                    document.getElementById('stat-accuracy').textContent = desktopAccuracyText;
+
+                    const pMob = document.getElementById('stat-progress-mobile');
+                    if (pMob) pMob.textContent = progressText;
+                    const aMob = document.getElementById('stat-accuracy-mobile');
+                    if (aMob) aMob.textContent = accuracyText;
+                }
+            } catch (e) {
+                console.error("Failed to fetch stats", e);
+            }
+        }
+
+        function handleReviewToggle() {
+            if (filterReview.checked) {
+                // 復習モード時は「未回答のみ」は無効化させる（排他）
+                filterUnanswered.checked = false;
+            }
+            fetchQuestion();
+        }
+
+        function switchMode(mode) {
+            if (currentMode === mode) return;
+            currentMode = mode;
+
+            if (mode === 'tf') {
+                tabTf.className = "flex-1 py-3 text-sm sm:text-base font-bold transition-colors bg-blue-800 dark:bg-gray-900 text-white border-b-4 border-white dark:border-blue-400";
+                tab4c.className = "flex-1 py-3 text-sm sm:text-base font-bold transition-colors text-blue-200 dark:text-gray-400 border-b-4 border-transparent hover:bg-blue-800 dark:hover:bg-gray-700 hover:text-white dark:hover:text-gray-200";
+                subQuestionAreaEl.classList.remove('hidden');
+
+            } else {
+                tab4c.className = "flex-1 py-3 text-sm sm:text-base font-bold transition-colors bg-blue-800 dark:bg-gray-900 text-white border-b-4 border-white dark:border-blue-400";
+                tabTf.className = "flex-1 py-3 text-sm sm:text-base font-bold transition-colors text-blue-200 dark:text-gray-400 border-b-4 border-transparent hover:bg-blue-800 dark:hover:bg-gray-700 hover:text-white dark:hover:text-gray-200";
+                subQuestionAreaEl.classList.add('hidden');
+            }
+
+            fetchQuestion();
+        }
+
+        async function fetchQuestion() {
+            fetchStats(); // 新しい問題を取得するタイミングで統計も更新
+            try {
+                loadingEl.classList.remove('hidden');
+                resultAreaEl.classList.add('hidden');
+                resultAreaEl.classList.remove('flex');
+
+                btnCopyAi.innerHTML = '<span>🤖 AIに解説を求める (プロンプトコピー)</span>';
+                btnCopyAi.classList.remove('bg-green-100', 'text-green-800', 'border-green-300', 'dark:bg-green-900/40', 'dark:text-green-200', 'dark:border-green-700/50');
+                btnCopyAi.classList.add('bg-amber-100', 'text-amber-800', 'border-amber-300', 'dark:bg-amber-900/30', 'dark:text-amber-200', 'dark:border-amber-700/50');
+
+                if (currentMode === 'tf') {
+                    actionTfEl.classList.remove('hidden');
+                    actionTfEl.classList.add('flex');
+                    action4cEl.classList.add('hidden');
+                    action4cEl.classList.remove('flex');
+                    btnTrue.disabled = false; btnTrue.style.opacity = '1';
+                    btnFalse.disabled = false; btnFalse.style.opacity = '1';
+                } else {
+                    actionTfEl.classList.add('hidden');
+                    actionTfEl.classList.remove('flex');
+                    action4cEl.classList.remove('hidden');
+                    action4cEl.classList.add('flex');
+                    choicesContainer.innerHTML = '';
+                }
+
+                currentQuestion = null;
+                userLastChoice = null;
+
+                const category = filterCategory.value;
+                const year = filterYear.value;
+                const unanswered = filterUnanswered.checked;
+                const review = filterReview.checked;
+
+                const params = new URLSearchParams({
+                    category,
+                    year,
+                    unanswered_only: unanswered,
+                    review_mode: review
+                });
+
+                const endpoint = (currentMode === 'tf' ? '/api/question' : '/api/question/4choice') + '?' + params.toString();
+                const res = await fetch(endpoint);
+
+                if (!res.ok) {
+                    if (res.status === 404) {
+                        if (review) {
+                            throw new Error('復習対象（前回不正解）の問題が見つかりません。');
+                        } else if (unanswered) {
+                            throw new Error('すべての未回答問題を解き終わりました。条件を変更してください。');
+                        } else {
+                            throw new Error('指定された条件の問題が見つかりません。');
+                        }
+                    }
+                    throw new Error('API Error');
+                }
+
+                const data = await res.json();
+                currentQuestion = data;
+
+                // バッジ情報追加
+                let badgeHtml = '';
+                if (review) badgeHtml += `<span class="bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded text-xs ml-2 font-bold border border-amber-300 dark:border-amber-700">復習モード</span>`;
+                if (category !== 'すべて') badgeHtml += `<span class="bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded text-xs ml-2">${category}</span>`;
+                if (year !== 'すべて') badgeHtml += `<span class="bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 px-2 py-0.5 rounded text-xs ml-2">${year}年度</span>`;
+
+                const qLabelElement = document.getElementById('question-badge');
+                qLabelElement.parentElement.innerHTML = `<span class="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded text-xs transition-colors" id="question-badge">問題</span>` + badgeHtml;
+
+                mainQuestionEl.textContent = data.main_question;
+
+                if (currentMode === 'tf') {
+                    subQuestionEl.textContent = data.sub_question;
+                } else {
+                    if (data.options && data.options.length > 0) {
+                        data.options.forEach((opt, idx) => {
+                            const btn = document.createElement('button');
+                            btn.className = "w-full text-left bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 font-bold py-3 px-4 rounded-xl shadow-sm active:bg-blue-50 dark:active:bg-gray-700 transition-colors flex items-start gap-2";
+                            btn.innerHTML = `<span class="shrink-0 text-blue-600 dark:text-blue-400">${labels[idx]}</span><span class="flex-grow text-sm sm:text-base leading-snug">${opt}</span>`;
+                            btn.onclick = () => handleAnswer4C(idx);
+                            choicesContainer.appendChild(btn);
+                        });
+                    } else {
+                        choicesContainer.innerHTML = '<p class="text-center text-red-500 py-4">選択肢の読み込みに失敗しました。</p>';
+                    }
+                }
+
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            } catch (err) {
+                console.error(err);
+                mainQuestionEl.textContent = err.message || '問題の取得に失敗しました。';
+                if (currentMode === 'tf') subQuestionEl.textContent = '';
+
+                // 問題がない場合はアクションボタンを無効化・非表示
+                actionTfEl.classList.add('hidden');
+                actionTfEl.classList.remove('flex');
+                action4cEl.classList.add('hidden');
+                action4cEl.classList.remove('flex');
+
+                const qLabelElement = document.getElementById('question-badge');
+                if (qLabelElement) {
+                    qLabelElement.parentElement.innerHTML = `<span class="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded text-xs transition-colors" id="question-badge">問題</span>`;
+                }
+
+                // 復習モードで対象がない場合は自動で解除する
+                if (filterReview.checked && err.message.includes('復習対象')) {
+                    setTimeout(() => {
+                        filterReview.checked = false;
+                        fetchQuestion();
+                    }, 2000); // 2秒後に自動解除して再ロード
+                }
+            } finally {
+                loadingEl.classList.add('hidden');
+            }
+        }
+
+        async function recordAnswer(isCorrect) {
+            if (!currentQuestion || !currentQuestion.id) return;
+
+            try {
+                await fetch('/api/log_answer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        question_id: currentQuestion.id,
+                        is_correct: isCorrect
+                    })
+                });
+
+                // 回答後に統計情報を非同期で更新
+                fetchStats();
+            } catch (e) {
+                console.error("Failed to log answer:", e);
+            }
+        }
+
+        function showResult(isCorrect, is4cMode = false) {
+            if (!currentQuestion) return;
+
+            // バックグラウンドで解答ログを送信
+            recordAnswer(isCorrect);
+
+            if (isCorrect) {
+                judgmentEl.innerHTML = '<div class="flex items-center justify-center gap-2 text-green-600 dark:text-green-400"><span class="text-3xl">⭕</span> 正解！</div>';
+                judgmentEl.className = 'text-xl sm:text-2xl font-bold py-4 px-4 border-b bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-800/50';
+            } else {
+                judgmentEl.innerHTML = '<div class="flex items-center justify-center gap-2 text-red-600 dark:text-red-400"><span class="text-3xl">❌</span> 不正解...</div>';
+                judgmentEl.className = 'text-xl sm:text-2xl font-bold py-4 px-4 border-b bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800/50';
+            }
+
+            let explText = currentQuestion.explanation || "";
+
+            if (is4cMode) {
+                const correctLabel = labels[currentQuestion.correct_option_index];
+                explanationEl.textContent = `【正解：${correctLabel}】\n\n${explText || "（解説はありません）"}`;
+            } else {
+                const truthText = currentQuestion.is_correct ? "正しい" : "誤り";
+                explanationEl.textContent = `【判定：この記述は「${truthText}」です】\n\n${explText || "（解説はありません）"}`;
+            }
+
+            if (currentMode === 'tf') {
+                actionTfEl.classList.add('hidden');
+                actionTfEl.classList.remove('flex');
+            } else {
+                action4cEl.classList.add('hidden');
+                action4cEl.classList.remove('flex');
+            }
+
+            resultAreaEl.classList.remove('hidden');
+            resultAreaEl.classList.add('flex');
+
+            setTimeout(() => {
+                const y = resultAreaEl.getBoundingClientRect().top + window.scrollY - 80;
+                window.scrollTo({ top: y, behavior: 'smooth' });
+            }, 50);
+        }
+
+        function handleAnswerTF(userSaysTrue) {
+            if (!currentQuestion) return;
+            const isCorrect = currentQuestion.is_correct;
+            const userCorrect = (userSaysTrue === isCorrect);
+
+            userLastChoice = userSaysTrue ? "正しい" : "誤り";
+
+            showResult(userCorrect, false);
+        }
+
+        function handleAnswer4C(selectedIndex) {
+            if (!currentQuestion) return;
+            const isCorrect = (selectedIndex === currentQuestion.correct_option_index);
+
+            userLastChoice = labels[selectedIndex];
+
+            showResult(isCorrect, true);
+        }
+
+        function copyPromptForAI() {
+            if (!currentQuestion) return;
+            const q = currentQuestion;
+
+            let prompt = "【宅建試験の解説をお願いします】\n以下の問題で間違えてしまいました。\nあるいは、アプリの解説が不足しているため詳しい解説を求めています。\n\n";
+            prompt += `■ 問題:\n${q.main_question}\n\n`;
+
+            if (currentMode === 'tf') {
+                prompt += `■ 判定対象の選択肢 (元問題の選択肢${labels[q.chosen_option_index]}):\n${q.sub_question}\n\n`;
+                prompt += `■ あなたの回答: 「${userLastChoice}」と判定\n`;
+                prompt += `■ 正解の判定: 「${q.is_correct ? "正しい" : "誤り"}」\n`;
+            } else {
+                prompt += `■ 選択肢:\n`;
+                if (q.options) {
+                    q.options.forEach((opt, idx) => {
+                        prompt += `${labels[idx]} ${opt}\n`;
+                    });
+                }
+                prompt += `\n■ あなたの回答: ${userLastChoice}\n`;
+                prompt += `■ 正解: ${labels[q.correct_option_index]}\n`;
+            }
+
+            prompt += `\n■ アプリの簡易解説:\n${q.explanation || "（解説データなし）"}\n\n`;
+            prompt += "なぜこの正解になるのか、関連する宅建業法や民法などの知識を含めて初学者にも分かりやすく解説してください。\n";
+
+            navigator.clipboard.writeText(prompt).then(() => {
+                btnCopyAi.innerHTML = '<span>✅ コピーしました！ ChatGPT等に貼り付けてください</span>';
+                btnCopyAi.classList.remove('bg-amber-100', 'text-amber-800', 'border-amber-300', 'dark:bg-amber-900/30', 'dark:text-amber-200', 'dark:border-amber-700/50');
+                btnCopyAi.classList.add('bg-green-100', 'text-green-800', 'border-green-300', 'dark:bg-green-900/40', 'dark:text-green-200', 'dark:border-green-700/50');
+            }).catch(err => {
+                console.error("Clipboard copy failed:", err);
+                alert("コピーに失敗しました。お手数ですが手動で選択してコピーしてください。");
+            });
+        }
+
+        // 初期ロード
+        fetchStats();
+        fetchQuestion();
+    </script>
+</body>
+
+</html>
